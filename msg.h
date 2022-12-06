@@ -1,3 +1,4 @@
+#include <stdint.h>
 #define MAX_NAME_LENGTH 128
 
 // Message types
@@ -7,16 +8,16 @@
 #define FAIL 5
 
 // record stored in the data base
-struct record{
+struct record
+{
 	char name[MAX_NAME_LENGTH]; // name should not be null
-	uint32_t id; // id of the record
-	char pad[124]; // size of the record is aligned to 256 bytes
+	uint32_t id;				// id of the record
+	char pad[124];				// size of the record is aligned to 256 bytes
 };
 
 // message structure
-struct msg{
+struct msg
+{
 	uint8_t type;
 	struct record rd;
 };
-
-

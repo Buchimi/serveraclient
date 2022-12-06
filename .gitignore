@@ -1,0 +1,10 @@
+/.vscode
+a.out
+client
+client.o
+
+server
+server.o
+
+test
+test.c
