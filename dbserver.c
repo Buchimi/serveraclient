@@ -19,13 +19,14 @@ int Listen(char *portnum, int *sock_family);
 void *HandleClient(void *args);
 int get(int32_t fd, struct record *s);
 ssize_t put(int32_t fd, struct record s);
+void grabNameAndID(uint32_t *id, char name[], struct msg *clientMessage);
 
 struct threadFnArgs
 {
   int c_fd;
   struct sockaddr *addr;
   size_t addrlen;
-  int sock_family
+  int sock_family;
 };
 
 int main(int argc, char **argv)
@@ -58,7 +59,7 @@ int main(int argc, char **argv)
     {
       if ((errno == EINTR) || (errno == EAGAIN) || (errno == EWOULDBLOCK))
         continue;
-      printf("Failure on accept:%d \n ", strerror(errno));
+      printf("Failure on accept:%s \n ", strerror(errno));
       break;
     }
     // create a new thread
@@ -132,7 +133,7 @@ int Listen(char *portnum, int *sock_family)
     {
       // Creating this socket failed.  So, loop to the next returned
       // result and try again.
-      printf("socket() failed:%d \n ", strerror(errno));
+      printf("socket() failed:%s \n ", strerror(errno));
       listen_fd = -1;
       continue;
     }
@@ -174,7 +175,7 @@ int Listen(char *portnum, int *sock_family)
   // Success. Tell the OS that we want this to be a listening socket.
   if (listen(listen_fd, SOMAXCONN) != 0)
   {
-    printf("Failed to mark socket as listening:%d \n ", strerror(errno));
+    printf("Failed to mark socket as listening:%s \n ", strerror(errno));
     close(listen_fd);
     return -1;
   }
@@ -202,15 +203,15 @@ void *HandleClient(void *argu)
 
   // Loop, reading data and echo'ing it back, until the client
   // closes the connection.
+  struct msg *clientMessage = malloc(sizeof(struct msg));
   while (1)
   {
-    char clientbuf[1024];
-    ssize_t res = read(c_fd, clientbuf, 1023);
+
+    ssize_t res = read(c_fd, clientMessage, sizeof(clientMessage));
     if (res == 0)
     {
       printf("[The client disconnected.] \n");
-      Pthread_exit(NULL);
-      break;
+      pthread_exit(NULL);
     }
 
     if (res == -1)
@@ -218,27 +219,24 @@ void *HandleClient(void *argu)
       if ((errno == EAGAIN) || (errno == EINTR))
         continue;
 
-      printf(" Error on client socket:%d \n ", strerror(errno));
-
-      break;
+      printf(" Error on client socket:%s \n ", strerror(errno));
+      pthread_exit(NULL);
     }
-    clientbuf[res] = '\0';
-    struct msg *clientMessage = (struct msg *)clientbuf;
+    // clientMessage = (struct msg *)clientbuf;
     uint32_t id;
-    char *name;
+    char *msgName = NULL;
 
     if (clientMessage->type == 0)
     {
-      printf("quitting");
+      printf("quitting\n");
     }
-    return;
 
-    grabNameAndID(&id, name, clientMessage);
+    grabNameAndID(&id, msgName, clientMessage);
     int fileDes = open("db", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 
     if (fileDes == -1)
     {
-      free(args);
+
       perror("couldn't create file");
       break;
     }
@@ -268,16 +266,16 @@ void *HandleClient(void *argu)
 
       if (result == -1)
       {
-        response->type == FAIL;
+        response->type = FAIL;
       }
       else
       {
-        response->type == SUCCESS;
+        response->type = SUCCESS;
         response->rd = clientMessage->rd;
         write(c_fd, response, sizeof(response));
       }
       free(response);
-      printf("getting");
+      printf("getting\n");
     }
 
     else
@@ -292,12 +290,8 @@ void *HandleClient(void *argu)
       continue;
     }
 
-    printf("the client sent: %s \n", clientbuf);
-
     // Really should do this in a loop in case of EAGAIN, EINTR,
     // or short write, but I'm lazy.  Don't be like me. ;)
-    write(c_fd, "You typed: ", strlen("You typed: "));
-    write(c_fd, clientbuf, strlen(clientbuf));
   }
   free(args);
   close(c_fd);
@@ -322,7 +316,7 @@ int get(int32_t fd, struct record *s)
   if (index > fileSize)
   {
     perror("Index does not exist");
-    return;
+    return -1;
   }
 
   // WRITE THE CODE to read record s from fd
@@ -330,7 +324,7 @@ int get(int32_t fd, struct record *s)
   // and return
 
   int res = read(fd, s, sizeof(s));
-  if (s->name == '\0')
+  if (s->name[0] == '\0')
   {
     perror("No user");
     return -1;

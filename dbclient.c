@@ -64,8 +64,9 @@ int main(int argc, char **argv)
   {
     // first we write
     getCommand(rec, message);
-    if (message->type == 0)
-    {
+    printf("%s", message->rd.name);
+    
+    if(message->type == 0){
       // quit
       break;
     }
@@ -114,8 +115,8 @@ int main(int argc, char **argv)
       }
       else if (message->type == GET)
       {
-        printf("name: %s", message->rd.name);
-        printf("id: %s", message->rd.id);
+        printf("name: %s\n", message->rd.name);
+        printf("id: %d\n", message->rd.id);
       }
     }
     else if (returnedFromServer->type == FAIL)
@@ -133,14 +134,12 @@ int main(int argc, char **argv)
     {
       perror("something was wrong");
     }
-
-    break;
   }
 
   // Clean up.
   free(rec);
   free(message);
-  free(returnedFromServer);
+  // free(returnedFromServer);
   close(socket_fd);
   return EXIT_SUCCESS;
 }

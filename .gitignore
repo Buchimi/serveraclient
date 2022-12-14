@@ -2,9 +2,13 @@
 a.out
 client
 client.o
+dbclient
 
 server
 server.o
+dbserver
 
 test
 test.c
+
+db
