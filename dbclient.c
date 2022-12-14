@@ -58,13 +58,17 @@ int main(int argc, char **argv)
 
   struct record *rec = malloc(sizeof(struct record));
   struct msg *message = malloc(sizeof(struct msg));
-
+  struct msg *returnedFromServer = malloc(sizeof(struct msg));
   // Write something to the remote host.
   while (1)
   {
     // first we write
     getCommand(rec, message);
-
+    if (message->type == 0)
+    {
+      // quit
+      break;
+    }
     int wres = write(socket_fd, message, res);
 
     if (wres == 0)
@@ -84,6 +88,8 @@ int main(int argc, char **argv)
 
     // time to read;
     res = read(socket_fd, readbuf, BUF - 1);
+    readbuf[res - 1] = '\0';
+    returnedFromServer = (struct msg *)readbuf;
     if (res == 0)
     {
       printf("socket closed prematurely \n");
@@ -99,12 +105,42 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
     }
     // readbuf[res] = '\0';
-    printf("%s", readbuf);
+    // printf("%s", readbuf);
+    if (returnedFromServer->type == SUCCESS)
+    {
+      if (message->type == PUT)
+      {
+        printf("Put success.");
+      }
+      else if (message->type == GET)
+      {
+        printf("name: %s", message->rd.name);
+        printf("id: %s", message->rd.id);
+      }
+    }
+    else if (returnedFromServer->type == FAIL)
+    {
+      if (message->type == PUT)
+      {
+        printf("Put Failed.");
+      }
+      else if (message->type == GET)
+      {
+        printf("Get failed");
+      }
+    }
+    else
+    {
+      perror("something was wrong");
+    }
 
     break;
   }
 
   // Clean up.
+  free(rec);
+  free(message);
+  free(returnedFromServer);
   close(socket_fd);
   return EXIT_SUCCESS;
 }
