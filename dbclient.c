@@ -11,17 +11,18 @@
 #include "msg.h"
 #define BUF 256
 
-void Usage(char *progname);
 
+// Prototypes
+void Usage(char *progname);
 int LookupName(char *name,
                unsigned short port,
                struct sockaddr_storage *ret_addr,
                size_t *ret_addrlen);
-
 int Connect(const struct sockaddr_storage *addr,
             const size_t addrlen,
             int *ret_fd);
 void getCommand();
+
 
 int main(int argc, char **argv)
 {
@@ -51,6 +52,7 @@ int main(int argc, char **argv)
     Usage(argv[0]);
   }
 
+  // Bytes read from server
   int res;
 
   struct record *rec = malloc(sizeof(struct record));
@@ -85,10 +87,10 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
     }
 
-    // time to read;
+    // Read from server
     res = read(socket_fd, returnedFromServer, sizeof(struct msg));
-    // readbuf[res - 1] = '\0';
-    // returnedFromServer = (struct msg *)readbuf;
+    
+    // Error Check
     if (res == 0)
     {
       printf("socket closed prematurely \n");
@@ -103,10 +105,11 @@ int main(int argc, char **argv)
       close(socket_fd);
       return EXIT_FAILURE;
     }
-    // readbuf[res] = '\0';
-    // printf("%s", readbuf);
+ 
+    // If Operation success
     if (returnedFromServer->type == SUCCESS)
     {
+      // Check which operation, then print appropriate stuff
       if (message->type == PUT)
       {
         printf("Put success.");
@@ -117,8 +120,10 @@ int main(int argc, char **argv)
         printf("id: %d\n", returnedFromServer->rd.id);
       }
     }
+    // If operation fail
     else if (returnedFromServer->type == FAIL)
     {
+      // Check which operation, then print appropriate stuff
       if (message->type == PUT)
       {
         printf("Put Failed.");
@@ -134,41 +139,45 @@ int main(int argc, char **argv)
     }
   }
 
-  // Clean up.
+  // Clean up
   free(rec);
   free(message);
-  // free(returnedFromServer);
+
+
   close(socket_fd);
   return EXIT_SUCCESS;
 }
-/* my stuff */
+
+// Retrieve command from console
 void getCommand(struct record *rec, struct msg *message)
 {
+  
   int command;
+
+  // Check if command is right, else keep prompting
   while (1)
   {
     printf("\nEnter your choice (1 to put, 2 to get, 0 to quit): ");
     scanf("%d", &command);
-    /* code */
+
     if (command >= 0 && command <= 2)
     {
-      /* code */
       break;
     }
   }
 
+  // If quit
   if (command == 0)
   {
     exit(EXIT_SUCCESS);
   }
 
-  // rec = malloc(sizeof(struct record));
-  // message = malloc(sizeof(struct msg));
 
   char *name = NULL;
   size_t size;
-  getline(&name, &size, stdin); // flushes
+  getline(&name, &size, stdin); 
 
+  // If put, get info
   if (command == 1)
   {
     printf("\nEnter the name: ");
@@ -184,13 +193,14 @@ void getCommand(struct record *rec, struct msg *message)
   scanf("%d", &id);
   getline(&name, &size, stdin);
 
-  rec->id = id;
 
+  // Assign vals
+  rec->id = id;
   message->rd = *rec;
   message->type = command;
 }
 
-/*end of my stuff*/
+
 
 void Usage(char *progname)
 {

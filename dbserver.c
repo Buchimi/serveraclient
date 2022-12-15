@@ -13,6 +13,7 @@
 #include "msg.h"
 #include <sys/stat.h>
 
+// Prototypes
 void Usage(char *progname);
 void PrintOut(int fd, struct sockaddr *addr, size_t addrlen);
 void PrintReverseDNS(struct sockaddr *addr, size_t addrlen);
@@ -23,6 +24,7 @@ int get(int32_t fd, struct record *s);
 ssize_t put(int32_t fd, struct record s);
 void grabNameAndID(uint32_t *id, char name[], struct msg *clientMessage);
 
+// Struct containing all params for handleClient
 struct threadFnArgs
 {
   int c_fd;
@@ -66,6 +68,8 @@ int main(int argc, char **argv)
     }
     // create a new thread
     pthread_t thread;
+
+    // Assogning paramenters for Handleclient to struct
     struct threadFnArgs *args = malloc(sizeof(struct threadFnArgs));
     args->c_fd = client_fd;
     args->sock_family = sock_family;
@@ -73,19 +77,14 @@ int main(int argc, char **argv)
     args->addr = (struct sockaddr *)(&caddr);
     Pthread_create(&thread, NULL, HandleClient, args);
 
-    // HandleClient(client_fd,
-    //              (struct sockaddr *)(&caddr),
-    //              caddr_len,
-    //              sock_family);
+    
   }
 
   // Close socket
   close(listen_fd);
   return EXIT_SUCCESS;
 }
-// struct threadFnArgs* createArgs(struct threadFnArgs* args){
-//   args->addr
-// }
+
 
 void Usage(char *progname)
 {
@@ -188,10 +187,10 @@ int Listen(char *portnum, int *sock_family)
 
 void *HandleClient(void *argu)
 {
-  // void HandleClient(int c_fd, struct sockaddr *addr, size_t addrlen,
-  //                 int sock_family)
+  // Casting to get proper data type
   struct threadFnArgs *args = (struct threadFnArgs *)argu;
 
+  // Assigning struct vals
   int c_fd = args->c_fd;
   struct sockaddr *addr = args->addr;
   size_t addrlen = args->addrlen;
@@ -209,7 +208,10 @@ void *HandleClient(void *argu)
   while (1)
   {
 
+    // Get size of message from client
     ssize_t res = read(c_fd, clientMessage, sizeof(struct msg));
+
+    // Error Check
     if (res == 0)
     {
       printf("[The client disconnected.] \n");
@@ -224,29 +226,39 @@ void *HandleClient(void *argu)
       printf(" Error on client socket:%s \n ", strerror(errno));
       pthread_exit(NULL);
     }
-    // clientMessage = (struct msg *)clientbuf;
+
+    // Record info
     uint32_t id;
     char *msgName = NULL;
 
+    // Quit
     if (clientMessage->type == 0)
     {
       printf("quitting\n");
     }
 
+    // Get name and id from client 
     grabNameAndID(&id, msgName, clientMessage);
+
+    // Open database file
     int fileDes = open("db", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 
+    // Error check
     if (fileDes == -1)
     {
-
       perror("couldn't create file");
       break;
     }
+
+
     if (clientMessage->type == PUT)
     {
+
+      // Writing record to db
       ssize_t result = put(fileDes, clientMessage->rd);
       struct msg *response = malloc(sizeof(struct msg));
-
+      
+      // Error check 
       if (result == -1)
       {
         response->type = FAIL;
@@ -255,16 +267,21 @@ void *HandleClient(void *argu)
       {
         response->type = SUCCESS;
       }
+
+      // Sending to client
       write(c_fd, response, sizeof(sizeof(struct msg)));
+
       free(response);
     }
     else if (clientMessage->type == GET)
     {
-
+      
       struct msg *response = malloc(sizeof(struct msg));
 
+      // Getting record from db
       int result = get(fileDes, &(clientMessage->rd));
 
+      // Error checking
       if (result == -1)
       {
         response->type = FAIL;
@@ -274,6 +291,8 @@ void *HandleClient(void *argu)
         response->type = SUCCESS;
         response->rd = clientMessage->rd;
       }
+
+      // Sending to client
       write(c_fd, response, sizeof(struct msg));
       free(response);
     }
@@ -289,39 +308,40 @@ void *HandleClient(void *argu)
       free(res);
       continue;
     }
-
-    // Really should do this in a loop in case of EAGAIN, EINTR,
-    // or short write, but I'm lazy.  Don't be like me. ;)
   }
+
   free(args);
   close(c_fd);
   pthread_exit(NULL);
 }
 
+// Gets name and id from clientMessage and assigns them to name and id
 void grabNameAndID(uint32_t *id, char name[], struct msg *clientMessage)
 {
   *id = clientMessage->rd.id;
   name = clientMessage->rd.name;
 }
 
+// Gets record from db
 int get(int32_t fd, struct record *s)
 {
 
-  // WRITE THE CODE to seek to the appropriate offset in fd
-  // The record index may be out of bounds. If so,
-  // print appropriate message and return
-
+  // Get file size
   struct stat st;
   fstat(fd, &st);
   int fileSize = st.st_size;
+
+  // Get appropriate index based in id
   int index = lseek(fd, sizeof(struct record) * s->id, SEEK_SET);
 
+  // Error Check
   if (index >= fileSize)
   {
     perror("Index does not exist");
     return -1;
   }
 
+  // Check if empty
   int res = read(fd, s, sizeof(struct msg));
   if (strcmp(s->name, "\0") == 0)
   {
@@ -330,9 +350,10 @@ int get(int32_t fd, struct record *s)
   return res;
 }
 
+// Write record in appropriate index
 ssize_t put(int32_t fd, struct record s)
 {
-
+  // Seek to appropriate index and write in db
   lseek(fd, s.id * sizeof(struct record), SEEK_SET);
   return write(fd, &s, sizeof(struct record));
 }
