@@ -51,9 +51,6 @@ int main(int argc, char **argv)
     Usage(argv[0]);
   }
 
-  // Read something from the remote host.
-  // Will only read BUF-1 characters at most.
-  char readbuf[BUF];
   int res;
 
   struct record *rec = malloc(sizeof(struct record));
@@ -64,13 +61,14 @@ int main(int argc, char **argv)
   {
     // first we write
     getCommand(rec, message);
-    printf("%s", message->rd.name);
-    
-    if(message->type == 0){
+    // printf("%s", message->rd.name);
+
+    if (message->type == 0)
+    {
       // quit
       break;
     }
-    int wres = write(socket_fd, message, res);
+    int wres = write(socket_fd, message, sizeof(struct msg));
 
     if (wres == 0)
     {
@@ -88,9 +86,9 @@ int main(int argc, char **argv)
     }
 
     // time to read;
-    res = read(socket_fd, readbuf, BUF - 1);
-    readbuf[res - 1] = '\0';
-    returnedFromServer = (struct msg *)readbuf;
+    res = read(socket_fd, returnedFromServer, sizeof(struct msg));
+    // readbuf[res - 1] = '\0';
+    // returnedFromServer = (struct msg *)readbuf;
     if (res == 0)
     {
       printf("socket closed prematurely \n");
@@ -115,8 +113,8 @@ int main(int argc, char **argv)
       }
       else if (message->type == GET)
       {
-        printf("name: %s\n", message->rd.name);
-        printf("id: %d\n", message->rd.id);
+        printf("name: %s\n", returnedFromServer->rd.name);
+        printf("id: %d\n", returnedFromServer->rd.id);
       }
     }
     else if (returnedFromServer->type == FAIL)
@@ -146,9 +144,19 @@ int main(int argc, char **argv)
 /* my stuff */
 void getCommand(struct record *rec, struct msg *message)
 {
-  printf("\nEnter your choice (1 to put, 2 to get, 0 to quit): ");
   int command;
-  scanf("%d", &command);
+  while (1)
+  {
+    printf("\nEnter your choice (1 to put, 2 to get, 0 to quit): ");
+    scanf("%d", &command);
+    /* code */
+    if (command >= 0 && command <= 2)
+    {
+      /* code */
+      break;
+    }
+  }
+
   if (command == 0)
   {
     exit(EXIT_SUCCESS);

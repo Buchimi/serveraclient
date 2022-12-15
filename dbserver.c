@@ -11,6 +11,8 @@
 #include <fcntl.h>
 #include "common_threads.h"
 #include "msg.h"
+#include <sys/stat.h>
+
 void Usage(char *progname);
 void PrintOut(int fd, struct sockaddr *addr, size_t addrlen);
 void PrintReverseDNS(struct sockaddr *addr, size_t addrlen);
@@ -207,7 +209,7 @@ void *HandleClient(void *argu)
   while (1)
   {
 
-    ssize_t res = read(c_fd, clientMessage, sizeof(clientMessage));
+    ssize_t res = read(c_fd, clientMessage, sizeof(struct msg));
     if (res == 0)
     {
       printf("[The client disconnected.] \n");
@@ -253,16 +255,15 @@ void *HandleClient(void *argu)
       {
         response->type = SUCCESS;
       }
-      write(c_fd, response, sizeof(response));
+      write(c_fd, response, sizeof(sizeof(struct msg)));
       free(response);
-      printf("putting");
     }
     else if (clientMessage->type == GET)
     {
 
       struct msg *response = malloc(sizeof(struct msg));
 
-      int result = get(c_fd, &(clientMessage->rd));
+      int result = get(fileDes, &(clientMessage->rd));
 
       if (result == -1)
       {
@@ -272,10 +273,9 @@ void *HandleClient(void *argu)
       {
         response->type = SUCCESS;
         response->rd = clientMessage->rd;
-        write(c_fd, response, sizeof(response));
       }
+      write(c_fd, response, sizeof(struct msg));
       free(response);
-      printf("getting\n");
     }
 
     else
@@ -285,7 +285,7 @@ void *HandleClient(void *argu)
       struct msg *res = malloc(sizeof(struct msg));
       res->type = FAIL;
       strcpy(res->rd.name, response);
-      write(c_fd, res, sizeof(res));
+      write(c_fd, res, sizeof(struct msg));
       free(res);
       continue;
     }
@@ -310,23 +310,21 @@ int get(int32_t fd, struct record *s)
   // WRITE THE CODE to seek to the appropriate offset in fd
   // The record index may be out of bounds. If so,
   // print appropriate message and return
-  int fileSize = lseek(fd, 0, SEEK_END);
-  int index = lseek(fd, sizeof(struct record) * s->id, 0);
 
-  if (index > fileSize)
+  struct stat st;
+  fstat(fd, &st);
+  int fileSize = st.st_size;
+  int index = lseek(fd, sizeof(struct record) * s->id, SEEK_SET);
+
+  if (index >= fileSize)
   {
     perror("Index does not exist");
     return -1;
   }
 
-  // WRITE THE CODE to read record s from fd
-  // If the record has not been put already, print appropriate message
-  // and return
-
-  int res = read(fd, s, sizeof(s));
-  if (s->name[0] == '\0')
+  int res = read(fd, s, sizeof(struct msg));
+  if (strcmp(s->name, "\0") == 0)
   {
-    perror("No user");
     return -1;
   }
   return res;
